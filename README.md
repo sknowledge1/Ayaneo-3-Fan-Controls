@@ -10,17 +10,43 @@ the hardware guard until separately validated.
 
 ## Controls
 
-- Firmware automatic control, manual duty, and a five-point custom curve.
+- Firmware automatic control, manual duty, a five-point custom curve, and Quiet.
 - A **0-100%** setting: zero allows a cool-temperature stop. Nonzero output below
   10% uses the tested 10% running floor.
-- Temperature-based cooling increases, full fan at 85 C, and automatic recovery at
-  95 C. Restart begins above 45 C; stopping again requires cooling to 42 C.
+- Temperature-based cooling increases, full fan at **95 C**, and firmware recovery
+  at 98 C. Restart begins above 45 C; stopping again requires cooling to 42 C.
 - Live RPM, CPU temperature, and actual control state.
 - Saved settings, suspend/resume handoff, and independent watchdog recovery.
 
 The zero-duty probe measured a stopped fan at 0%, no rotation at 1%, and restart
 at 10%. A duty percentage is not a linear RPM percentage. Temperature protection
 can raise the effective duty above the selected value.
+
+### Quiet profile
+
+Select **Quiet** and **Apply changes** to reduce fan noise by allowing warmer CPU
+operation. Its preset is managed by the service and keeps your custom curve and
+manual setting intact. It uses these points, with interpolation between them:
+
+| CPU temperature | 45 C or below | 55 C | 65 C | 75 C | 85 C | 90 C | 95 C |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Fan duty | 0% | 15% | 25% | 35% | 55% | 75% | 100% |
+
+Once running, the fan must cool to 42 C before stopping. Nonzero output is at
+least 10%; duty decreases gradually to reduce audible fluctuations, while rising
+temperature can increase it immediately. The usual sensor, stall, watchdog, and
+firmware-recovery protections apply in Quiet too.
+
+The 95 C setting is the **full-fan point**, not a guaranteed temperature cap.
+The separate 98 C firmware handoff stays below the 8840U's
+[documented 100 C Tjmax](https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-7-8840u.html).
+The preset is a software policy; its noise level and temperatures under sustained
+gaming load have not been measured.
+
+In v0.3.0 the custom anchors are 40/55/65/75/**95 C**. Existing duty values are
+retained; only the last temperature moved from 85 C. Manual and custom modes
+retain their previous lower-temperature cooling floor. Updating does not select
+Quiet automatically or change the current mode.
 
 ## Native Bazzite interface
 
@@ -70,6 +96,7 @@ the Decky ZIP without the service produces an explanatory unavailable state.
 
 ```sh
 python3 -m unittest discover -s tests -v
+node --test tests/test_panel.mjs
 node scripts/build-frontend.mjs
 python3 scripts/build-native.py
 python3 scripts/build-decky-package.py

@@ -16,10 +16,14 @@ import socketserver
 import sys
 import time
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 SOCKET = "/run/ay3-fancontrol/control.sock"
 CONFIG = "/var/lib/ay3-fancontrol/config.json"
-ANCHORS = [40, 55, 65, 75, 85]
+FULL_SPEED_C = 95
+RECOVERY_C = 98
+ANCHORS = [40, 55, 65, 75, FULL_SPEED_C]
+QUIET_POINTS = [(45, 0), (55, 15), (65, 25), (75, 35), (85, 55), (90, 75), (FULL_SPEED_C, 100)]
+STANDARD_FLOOR = [(45, 0), (55, 40), (65, 60), (75, 80), (FULL_SPEED_C, 100)]
 MIN_DUTY = 0
 MIN_RUNNING_DUTY = 10
 DEFAULT = {"mode": "auto", "percent": 60, "curve": [40, 50, 70, 85, 100]}
@@ -53,7 +57,7 @@ def find_fan(root):
 def validate_config(value):
     if not isinstance(value, dict) or set(value) != set(DEFAULT):
         raise ValueError("Expected mode, percent, and curve settings")
-    if value["mode"] not in ("auto", "manual", "curve"):
+    if value["mode"] not in ("auto", "manual", "curve", "quiet"):
         raise ValueError("Unknown fan mode")
     numbers = [value["percent"]] + (value["curve"] if isinstance(value["curve"], list) else [])
     if len(numbers) != 6 or any(type(n) is not int or not MIN_DUTY <= n <= 100 for n in numbers):
@@ -79,9 +83,10 @@ def interpolate(points, temperature):
     return float(points[-1][1])
 
 
-def safety_floor(temperature):
-    # Conservative policy below the 8840U's documented 100 C Tjmax.
-    return interpolate([(45, 0), (55, 40), (65, 60), (75, 80), (85, 100)], temperature)
+def safety_floor(temperature, mode="manual"):
+    # Quiet trades warmer operation for less noise. Both policies reach full duty
+    # at 95 C, before recovery at 98 C and the 8840U's documented 100 C Tjmax.
+    return interpolate(QUIET_POINTS if mode == "quiet" else STANDARD_FLOOR, temperature)
 
 
 def save_config(path, value):
@@ -194,7 +199,7 @@ class Controller:
         # A request cannot acquire manual control without valid current telemetry.
         if value["mode"] != "auto":
             sample = self.hardware.sample()
-            if sample["cpu_c"] >= 95:
+            if sample["cpu_c"] >= RECOVERY_C:
                 raise ValueError("Device is too hot to acquire manual fan control")
             if sample["hardware_mode"] == 1 and self.config["mode"] == "auto":
                 raise RuntimeError("Another fan controller appears to own the fan")
@@ -233,7 +238,7 @@ class Controller:
                 return
             if self.last_tick is not None and now - self.last_tick > 5:
                 raise RuntimeError("Controller sampling was interrupted")
-            if sample["cpu_c"] >= 95:
+            if sample["cpu_c"] >= RECOVERY_C:
                 raise RuntimeError("CPU reached the automatic-recovery temperature")
             if self.manual_since is not None and sample["hardware_mode"] != 1:
                 raise RuntimeError("Fan ownership changed; automatic control restored")
@@ -243,15 +248,21 @@ class Controller:
                     raise RuntimeError("Fan rotation could not be confirmed")
             else:
                 self.stall_ticks = 0
-            requested = self.config["percent"] if self.config["mode"] == "manual" else interpolate(list(zip(ANCHORS, self.config["curve"])), sample["cpu_c"])
-            floor = safety_floor(sample["cpu_c"])
+            mode = self.config["mode"]
+            floor = safety_floor(sample["cpu_c"], mode)
+            if mode == "quiet":
+                requested = floor
+            elif mode == "manual":
+                requested = self.config["percent"]
+            else:
+                requested = interpolate(list(zip(ANCHORS, self.config["curve"])), sample["cpu_c"])
             target = max(requested, floor)
             stop_requested = target == 0
             # A stopped fan restarts above 45 C. Keep it running until <=42 C
             # to avoid cycling around that boundary.
             if stop_requested and self.last_duty is not None and self.last_duty > 0 and sample["cpu_c"] > 42:
                 target = MIN_RUNNING_DUTY
-            if self.last_duty is not None and self.config["mode"] == "curve":
+            if self.last_duty is not None and mode in ("curve", "quiet"):
                 target = max(target, self.last_duty - 3)
             if 0 < target < MIN_RUNNING_DUTY:
                 target = 0 if stop_requested and sample["cpu_c"] <= 42 else MIN_RUNNING_DUTY
@@ -272,7 +283,9 @@ class Controller:
     def status(self):
         age = None if self.sampled_at is None else self.clock() - self.sampled_at
         return {"ok": True, "version": VERSION, "config": copy.deepcopy(self.config),
-                "anchors": ANCHORS, "minimum_percent": MIN_DUTY,
+                "anchors": ANCHORS, "quiet_points": copy.deepcopy(QUIET_POINTS),
+                "full_speed_c": FULL_SPEED_C, "recovery_c": RECOVERY_C,
+                "minimum_percent": MIN_DUTY,
                 "minimum_running_percent": MIN_RUNNING_DUTY, "fault": self.fault,
                 "telemetry": self.telemetry if age is not None and age < 5 else None,
                 "sample_age_s": age, "effective_percent": self.last_duty,

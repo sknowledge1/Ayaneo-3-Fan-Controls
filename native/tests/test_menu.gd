@@ -48,6 +48,7 @@ func _run() -> void:
 		"telemetry": {"cpu_c": 42.5, "hardware_mode": 2, "rpm": 2100},
 		"effective_percent": null,
 		"fault": null,
+		"quiet_points": [[45, 0], [55, 15], [65, 25], [75, 35], [85, 55], [90, 75], [95, 100]],
 	}
 	client.emit_signal("state_changed", state, "status")
 	_check((menu.get("_telemetry") as Label).text.contains("2100 RPM"), "RPM is displayed")
@@ -66,6 +67,22 @@ func _run() -> void:
 	_check(curve == [40, 80, 80, 85, 100], "Curve edits remain monotonic with a full-speed endpoint")
 	_check((menu.get("_curve_sliders") as Array).size() == 5, "Five native curve controls are present")
 	_check(not ((menu.get("_curve_sliders") as Array)[4] as ValueSlider).editable, "High-temperature endpoint is fixed")
+	_check(((menu.get("_curve_sliders") as Array)[4] as ValueSlider).text.begins_with("95 °C"), "The full-speed endpoint is 95 C")
+	menu.call("_on_mode_selected", 3)
+	_check((menu.get("_config") as Dictionary)["mode"] == "quiet", "Quiet can be selected")
+	_check((menu.get("_config") as Dictionary)["curve"] == curve, "Quiet preserves the custom curve")
+	_check((menu.get("_quiet") as Label).visible and not (menu.get("_curve_box") as VBoxContainer).visible, "Quiet shows its preview instead of custom sliders")
+	_check((menu.get("_quiet") as Label).text.contains("85 °C: 55%"), "Quiet displays the backend-owned curve")
+	client.emit_signal("state_changed", state, "status")
+	_check((menu.get("_config") as Dictionary)["mode"] == "quiet", "Polling preserves a pending Quiet selection")
+	var quiet_state: Dictionary = state.duplicate(true)
+	quiet_state["config"]["mode"] = "quiet"
+	quiet_state["telemetry"]["hardware_mode"] = 1
+	quiet_state["effective_percent"] = 15
+	menu.set("_awaiting_apply", true)
+	client.emit_signal("state_changed", quiet_state, "configure")
+	_check((menu.get("_mode_label") as Label).text == "Quiet — 15% duty", "The active Quiet profile is identified")
+	_check(not bool(menu.get("_dirty")), "Applying Quiet clears the pending state")
 	menu.set("_awaiting_apply", true)
 	client.emit_signal("state_changed", state, "configure")
 	_check(not bool(menu.get("_dirty")), "An applied response clears the pending state")

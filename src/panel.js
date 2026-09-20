@@ -64,7 +64,7 @@ function Panel() {
     finally { updateBusy(false); }
   };
   const telemetry = status?.telemetry;
-  const modeLabel = telemetry?.hardware_mode === 2 ? "Firmware automatic" : status?.config?.mode === "curve" ? "Custom curve" : telemetry?.hardware_mode === 1 ? "Manual" : "Unavailable";
+  const modeLabel = telemetry?.hardware_mode === 2 ? "Firmware automatic" : telemetry?.hardware_mode === 1 ? ({ quiet: "Quiet", curve: "Custom curve" }[status?.config?.mode] || "Manual") : "Unavailable";
   const row = (key, node) => h(PanelSectionRow, { key }, node);
   const note = (text, color = "#aeb8c4") => h("div", { style: { fontSize: "12px", lineHeight: "1.5", padding: "6px 0", color } }, text);
   const controls = [
@@ -73,17 +73,25 @@ function Panel() {
       h("div", null, note("CPU temperature"), h("strong", { style: { fontSize: "22px" } }, telemetry ? `${telemetry.cpu_c.toFixed(1)} °C` : "—")))),
     row("state", note(`${modeLabel}${telemetry?.hardware_mode === 1 && status?.effective_percent != null ? ` · ${status.effective_percent}% duty` : ""}`)),
     row("mode", h(DropdownItem, { label: "Fan mode", selectedOption: editing.mode, disabled: busy || !status,
-      rgOptions: [{ label: "Automatic", data: "auto" }, { label: "Manual", data: "manual" }, { label: "Custom curve", data: "curve" }],
+      rgOptions: [{ label: "Automatic", data: "auto" }, { label: "Manual", data: "manual" }, { label: "Custom curve", data: "curve" }, { label: "Quiet", data: "quiet" }],
       onChange: option => edit({ mode: option.data }) }))
   ];
   if (editing.mode === "manual") controls.push(row("duty", h(SliderField, { label: "Fan duty", value: editing.percent, min: 0, max: 100, step: 1, showValue: true, disabled: busy,
     onChange: value => edit({ percent: Math.round(value) }) })));
-  if (editing.mode === "curve") {
-    const anchors = status?.anchors || [40, 55, 65, 75, 85];
-    const points = editing.curve.map((value, index) => `${8 + index * 56},${78 - value * 0.6}`).join(" ");
-    controls.push(row("graph", h("svg", { viewBox: "0 0 240 90", role: "img", "aria-label": "Fan curve from 40 to 85 degrees", style: { width: "100%", height: "90px" } },
+  const anchors = status?.anchors || [40, 55, 65, 75, 95];
+  if (editing.mode === "quiet") {
+    controls.push(row("quiet", note("Quiet allows warmer operation with less fan noise. Your custom curve is kept separately.")));
+    if (status?.quiet_points) controls.push(row("quiet-points", note(status.quiet_points.map(([temperature, duty]) => `${temperature} °C: ${duty}%`).join(" · "))));
+  }
+  if (editing.mode === "curve" || (editing.mode === "quiet" && status?.quiet_points)) {
+    const curvePoints = editing.mode === "quiet" ? status.quiet_points : anchors.map((temperature, index) => [temperature, editing.curve[index]]);
+    const start = curvePoints[0][0], end = curvePoints[curvePoints.length - 1][0];
+    const points = curvePoints.map(([temperature, value]) => `${8 + (temperature - start) / (end - start) * 224},${78 - value * 0.6}`).join(" ");
+    controls.push(row("graph", h("svg", { viewBox: "0 0 240 90", role: "img", "aria-label": `Fan curve from ${start} to ${end} degrees`, style: { width: "100%", height: "90px" } },
       h("path", { d: "M8 10 V80 H236", stroke: "#556373", fill: "none" }),
       h("polyline", { points, fill: "none", stroke: "#66d9ef", strokeWidth: 3 }))));
+  }
+  if (editing.mode === "curve") {
     anchors.forEach((temperature, index) => controls.push(row(`point-${temperature}`, h(SliderField, {
       label: `${temperature} °C`, value: editing.curve[index], min: 0, max: 100, step: 1, showValue: true,
       disabled: busy || index === anchors.length - 1,
@@ -102,7 +110,7 @@ function Panel() {
   if (dirty) controls.push(row("unsaved", note("Changes are waiting to be applied.")));
   if (status?.fault) controls.push(row("fault", note(status.fault, "#ffbe7a")));
   if (error) controls.push(row("error", note(error, "#ffbe7a")));
-  controls.push(row("help", note("0% allows a stop when cool. Nonzero settings below 10% use the tested 10% running floor. Cooling increases automatically with temperature, and control continues with this menu closed.")));
+  controls.push(row("help", note(`0% allows a stop when cool. Nonzero output uses a 10% running floor. Full cooling starts at ${status?.full_speed_c ?? 95} °C; firmware recovery starts at ${status?.recovery_c ?? 98} °C. Control continues with this menu closed.`)));
   return h(PanelSection, { title: "AYANEO 3" }, ...controls);
 }
 

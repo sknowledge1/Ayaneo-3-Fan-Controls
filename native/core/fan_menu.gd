@@ -4,8 +4,8 @@ const FanClientScript := preload("res://plugins/ayaneo-fan-control/core/fan_clie
 const SLIDER_SCENE := preload("res://core/ui/components/slider.tscn")
 const DROPDOWN_SCENE := preload("res://core/ui/components/dropdown.tscn")
 const BUTTON_SCENE := preload("res://core/ui/components/button.tscn")
-const MODES: Array[String] = ["auto", "manual", "curve"]
-const ANCHORS: Array[int] = [40, 55, 65, 75, 85]
+const MODES: Array[String] = ["auto", "manual", "curve", "quiet"]
+const ANCHORS: Array[int] = [40, 55, 65, 75, 95]
 
 var client: FanClientScript
 var _config: Dictionary = {"mode": "auto", "percent": 60, "curve": [40, 50, 70, 85, 100]}
@@ -20,6 +20,7 @@ var _message: Label
 var _mode: Dropdown
 var _manual: ValueSlider
 var _curve_box: VBoxContainer
+var _quiet: Label
 var _curve_sliders: Array[ValueSlider] = []
 var _apply: Button
 var _automatic: Button
@@ -47,6 +48,7 @@ func _ready() -> void:
 	_mode.add_item("Automatic")
 	_mode.add_item("Manual")
 	_mode.add_item("Custom curve")
+	_mode.add_item("Quiet")
 	_mode.item_selected.connect(_on_mode_selected)
 	_manual = _slider("Fan duty (%)", 60)
 	_manual.value_changed.connect(_on_manual_changed)
@@ -64,6 +66,7 @@ func _ready() -> void:
 		_curve_box.add_child(slider)
 		slider.value_changed.connect(_on_curve_changed.bind(index))
 		_curve_sliders.append(slider)
+	_quiet = _label("Quiet allows warmer operation with a gentler fan curve, reaching full speed at 95 °C. Your custom curve is kept separately.")
 	_apply = BUTTON_SCENE.instantiate() as Button
 	_apply.text = "Apply changes"
 	_apply.pressed.connect(_apply_changes)
@@ -73,7 +76,7 @@ func _ready() -> void:
 	_automatic.pressed.connect(_restore_automatic)
 	add_child(_automatic)
 	_message = _label("")
-	_label("0% allows a stop when cool. Nonzero settings below 10% use the tested running floor. Cooling increases automatically with temperature and continues with the menu closed.")
+	_label("0% allows a stop when cool. Nonzero output uses a 10% running floor. Full cooling starts at 95 °C; firmware recovery starts at 98 °C. Control continues with the menu closed.")
 	focus_entered.connect(_mode.grab_focus)
 	if client != null:
 		client.state_changed.connect(_on_state_changed)
@@ -112,6 +115,7 @@ func _sync_editor() -> void:
 		_curve_sliders[index].value = float((_config["curve"] as Array)[index])
 	_manual.visible = _config["mode"] == "manual"
 	_curve_box.visible = _config["mode"] == "curve"
+	_quiet.visible = _config["mode"] == "quiet"
 	_mode.disabled = not _connected or _busy
 	_apply.disabled = not _connected or not _dirty or _busy
 	_automatic.disabled = not _connected or _busy
@@ -167,6 +171,13 @@ func _restore_automatic() -> void:
 
 func _on_state_changed(state: Dictionary, operation: String) -> void:
 	_connected = true
+	var quiet_points: Variant = state.get("quiet_points")
+	if quiet_points is Array:
+		var points: PackedStringArray = []
+		for point: Variant in quiet_points:
+			if point is Array and point.size() == 2:
+				points.append("%d °C: %d%%" % [int(point[0]), int(point[1])])
+		_quiet.text = "Quiet allows warmer operation with less fan noise. Your custom curve is kept separately.\n" + " · ".join(points)
 	var telemetry: Variant = state.get("telemetry")
 	if telemetry is Dictionary:
 		var sample: Dictionary = telemetry as Dictionary
@@ -175,7 +186,9 @@ func _on_state_changed(state: Dictionary, operation: String) -> void:
 			_mode_label.text = "Firmware automatic control"
 		else:
 			var effective: Variant = state.get("effective_percent")
-			_mode_label.text = "Manual control — %d%% duty" % int(effective) if effective != null else "Another controller is using manual mode"
+			var active_mode: String = str((state.get("config", {}) as Dictionary).get("mode", "manual"))
+			var mode_name: String = {"quiet": "Quiet", "curve": "Custom curve"}.get(active_mode, "Manual control")
+			_mode_label.text = "%s — %d%% duty" % [mode_name, int(effective)] if effective != null else "Another controller is using manual mode"
 	else:
 		_telemetry.text = "Fan telemetry unavailable"
 		_mode_label.text = "Automatic recovery requested"

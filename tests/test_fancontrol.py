@@ -81,19 +81,19 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.hardware.mode, 2)
 
     def test_thermal_floor_overrides_low_manual_duty(self):
-        self.hardware.temperature = 85
+        self.hardware.temperature = 95
         result = self.configure(percent=40)
         self.assertEqual(result["effective_percent"], 100)
 
     def test_critical_temperature_releases(self):
         self.configure()
-        self.hardware.temperature = 95
+        self.hardware.temperature = 98
         self.controller.tick()
         self.assertEqual(self.hardware.mode, 2)
         self.assertEqual(self.controller.config["mode"], "auto")
 
     def test_refuses_hot_acquisition(self):
-        self.hardware.temperature = 95
+        self.hardware.temperature = 98
         with self.assertRaises(ValueError):
             self.configure()
         self.assertEqual(self.hardware.mode, 2)
@@ -221,6 +221,112 @@ class ControllerTests(unittest.TestCase):
         result = self.configure("curve", curve=[0, 0, 60, 80, 100])
         self.assertTrue(result["ok"])
         self.assertEqual(result["effective_percent"], 0)
+        self.hardware.temperature = 95
+        self.now += 1
+        self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 100)
+
+    def test_quiet_uses_gentler_policy_independent_of_saved_curve(self):
+        # Explicit expected outputs catch the old, aggressive floor overriding Quiet.
+        for temperature, duty in [(40, 0), (45, 0), (46, 10), (55, 15), (65, 25),
+                                  (75, 35), (85, 55), (90, 75), (95, 100)]:
+            with self.subTest(temperature=temperature):
+                self.hardware.temperature = temperature
+                result = self.configure("quiet", percent=100, curve=[100] * 5)
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["effective_percent"], duty)
+                self.assertEqual(self.hardware.mode, 1)
+
+    def test_standard_policy_only_moves_the_last_temperature(self):
+        self.assertEqual(fan.ANCHORS, [40, 55, 65, 75, 95])
+        for temperature, duty in [(55, 40), (65, 60), (75, 80), (85, 90), (95, 100)]:
+            with self.subTest(temperature=temperature):
+                self.hardware.temperature = temperature
+                self.assertEqual(self.configure(percent=0)["effective_percent"], duty)
+
+    def test_all_software_modes_reach_full_before_recovery(self):
+        for mode in ("manual", "curve", "quiet"):
+            for temperature in (95, 97.999):
+                with self.subTest(mode=mode, temperature=temperature):
+                    self.hardware.temperature = temperature
+                    result = self.configure(mode, percent=0, curve=[0, 0, 0, 0, 100])
+                    self.assertTrue(result["ok"])
+                    self.assertEqual(result["effective_percent"], 100)
+                    self.assertEqual(self.hardware.mode, 1)
+            self.hardware.temperature = 98
+            self.now += 1
+            self.controller.tick()
+            self.assertEqual(self.hardware.mode, 2)
+            self.assertEqual(json.loads(self.config.read_text())["mode"], "auto")
+            with self.assertRaises(ValueError):
+                self.configure(mode)
+
+    def test_quiet_persists_without_overwriting_custom_settings(self):
+        saved = {"mode": "quiet", "percent": 15, "curve": [10, 30, 40, 70, 100]}
+        self.controller.configure(saved)
+        new = fan.Controller(self.hardware, self.config, lambda: self.now)
+        new.tick()
+        self.assertEqual(new.config, saved)
+        self.assertEqual(new.last_duty, 0)
+        restored = {**saved, "mode": "curve"}
+        self.assertEqual(new.configure(restored)["config"], restored)
+
+    def test_quiet_cools_gradually_but_heats_without_rate_limit(self):
+        self.hardware.temperature = 85
+        self.configure("quiet")
+        self.hardware.temperature = 65
+        self.now += 1
+        self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 52)
+        self.hardware.temperature = 95
+        self.now += 1
+        self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 100)
+
+    def test_quiet_stop_restart_hysteresis_and_failed_restart(self):
+        self.hardware.temperature = 40
+        self.hardware.rpm = 0
+        self.configure("quiet")
+        for _ in range(10):
+            self.now += 1
+            self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 0)
+        self.assertIsNone(self.controller.fault)
+        self.hardware.temperature = 46
+        self.now += 1
+        self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 10)
+        self.assertIsNone(self.controller.fault)
+        self.hardware.rpm = 710
+        self.hardware.temperature = 44
+        self.now += 1
+        self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 10)
+        self.hardware.temperature = 42
+        self.now += 1
+        self.controller.tick()
+        self.assertEqual(self.controller.last_duty, 0)
+        self.hardware.temperature = 46
+        self.hardware.rpm = 0
+        for _ in range(9):
+            self.now += 1
+            self.controller.tick()
+        self.assertEqual(self.hardware.mode, 2)
+        self.assertIn("rotation", self.controller.fault)
+
+    def test_quiet_sensor_failure_still_recovers(self):
+        self.configure("quiet")
+        self.hardware.read_error = "sensor missing"
+        self.controller.tick()
+        self.assertEqual(self.hardware.mode, 2)
+        self.assertEqual(json.loads(self.config.read_text())["mode"], "auto")
+
+    def test_status_exposes_quiet_preview_and_temperature_limits(self):
+        status = self.configure("quiet")
+        self.assertEqual(status["full_speed_c"], 95)
+        self.assertEqual(status["recovery_c"], 98)
+        self.assertEqual(status["quiet_points"][0], (45, 0))
+        self.assertEqual(status["quiet_points"][-1], (95, 100))
 
     def test_native_cli_roundtrip_preserves_json_quotes_and_zero(self):
         config = {"mode": "manual", "percent": 0, "curve": [0, 10, 60, 80, 100]}

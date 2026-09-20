@@ -1,7 +1,7 @@
 {
   "plugin.id": "ayaneo-fan-control",
   "plugin.name": "Ayaneo 3 Fan Controls",
-  "plugin.version": "0.2.0",
+  "plugin.version": "0.3.0",
   "plugin.min-api-version": "2.0.0",
   "plugin.link": "https://github.com/sknowledge1/Ayaneo-3-Fan-Controls",
   "plugin.source": "https://github.com/sknowledge1/Ayaneo-3-Fan-Controls",
