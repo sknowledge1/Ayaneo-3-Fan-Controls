@@ -1,0 +1,10 @@
+dist/
+deploy-manifest.json
+node_modules/
+__pycache__/
+*.pyc
+.tools/
+artifacts/
+TASK.md
+DECISIONS.md
+CONSTRAINTS.md

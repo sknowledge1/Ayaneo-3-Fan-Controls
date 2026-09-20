@@ -1,0 +1,11 @@
+{
+  "name": "AY3 Fan Control",
+  "author": "sknowledge1 and contributors",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["fan", "ayaneo"],
+    "description": "Optional Decky frontend for Ayaneo 3 Fan Controls. Requires its native fan service.",
+    "image": "https://opengraph.githubassets.com/1/sknowledge1/Ayaneo-3-Fan-Controls"
+  }
+}

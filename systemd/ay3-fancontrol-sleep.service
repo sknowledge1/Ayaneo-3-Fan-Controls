@@ -1,0 +1,13 @@
+[Unit]
+Description=Release AYANEO fan control during sleep
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemctl stop ay3-fancontrol.service
+ExecStop=/usr/bin/systemctl start ay3-fancontrol.service
+
+[Install]
+WantedBy=sleep.target
