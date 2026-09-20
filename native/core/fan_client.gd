@@ -5,6 +5,7 @@ signal request_failed(message: String)
 signal busy_changed(busy: bool)
 
 const CONTROLLER_PATH := "/var/lib/ay3-fancontrol/app/ay3_fancontrol.py"
+const PACKAGED_CONTROLLER_PATH := "/usr/libexec/ay3-fancontrol"
 
 var last_state: Dictionary = {}
 var _thread: Thread = Thread.new()
@@ -26,7 +27,12 @@ func _ready() -> void:
 func poll() -> void:
 	if _stopping or _thread.is_started():
 		return
-	_start_request("status", PackedStringArray([CONTROLLER_PATH, "--status"]))
+	_start_request("status", PackedStringArray([controller_path(), "--status"]))
+
+
+static func controller_path() -> String:
+	# Distribution packages keep executable code in the immutable /usr tree.
+	return PACKAGED_CONTROLLER_PATH if FileAccess.file_exists(PACKAGED_CONTROLLER_PATH) else CONTROLLER_PATH
 
 
 func apply_configuration(config: Dictionary) -> void:
@@ -53,7 +59,7 @@ func _start_queued_config() -> void:
 	_queued_config = null
 	# Godot's process API can consume embedded JSON quotes on this platform.
 	var payload: String = encode_configuration(config)
-	_start_request("configure", PackedStringArray([CONTROLLER_PATH, "--configure-base64", payload]))
+	_start_request("configure", PackedStringArray([controller_path(), "--configure-base64", payload]))
 
 
 func _start_request(operation: String, arguments: PackedStringArray) -> void:

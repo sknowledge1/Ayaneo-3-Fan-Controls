@@ -6,6 +6,7 @@ const DROPDOWN_SCENE := preload("res://core/ui/components/dropdown.tscn")
 const BUTTON_SCENE := preload("res://core/ui/components/button.tscn")
 const MODES: Array[String] = ["auto", "manual", "curve", "quiet"]
 const ANCHORS: Array[int] = [40, 55, 65, 75, 95]
+const QUICK_BAR_FOCUS := preload("res://core/ui/card_ui/quick_bar/quick_bar_menu_focus.tres")
 
 var client: FanClientScript
 var _config: Dictionary = {"mode": "auto", "percent": 60, "curve": [40, 50, 70, 85, 100]}
@@ -22,6 +23,8 @@ var _manual: ValueSlider
 var _curve_box: VBoxContainer
 var _quiet: Label
 var _curve_sliders: Array[ValueSlider] = []
+var _focus_group: FocusGroup
+var _curve_focus: FocusGroup
 var _apply: Button
 var _automatic: Button
 
@@ -66,6 +69,11 @@ func _ready() -> void:
 		_curve_box.add_child(slider)
 		slider.value_changed.connect(_on_curve_changed.bind(index))
 		_curve_sliders.append(slider)
+	_curve_focus = FocusGroup.new()
+	_curve_focus.focus_stack = QUICK_BAR_FOCUS
+	_curve_box.add_child(_curve_focus)
+	_curve_box.focus_mode = Control.FOCUS_ALL
+	_curve_box.focus_entered.connect(_curve_focus.grab_focus)
 	_quiet = _label("Quiet allows warmer operation with a gentler fan curve, reaching full speed at 95 °C. Your custom curve is kept separately.")
 	_apply = BUTTON_SCENE.instantiate() as Button
 	_apply.text = "Apply changes"
@@ -77,7 +85,13 @@ func _ready() -> void:
 	add_child(_automatic)
 	_message = _label("")
 	_label("0% allows a stop when cool. Nonzero output uses a 10% running floor. Full cooling starts at 95 °C; firmware recovery starts at 98 °C. Control continues with the menu closed.")
-	focus_entered.connect(_mode.grab_focus)
+	# Stock cards discover this group and enter it after their expansion animation.
+	_focus_group = FocusGroup.new()
+	_focus_group.focus_stack = QUICK_BAR_FOCUS
+	_focus_group.current_focus = _mode
+	add_child(_focus_group)
+	move_child(_focus_group, 0)
+	focus_entered.connect(_focus_group.grab_focus)
 	if client != null:
 		client.state_changed.connect(_on_state_changed)
 		client.request_failed.connect(_on_request_failed)

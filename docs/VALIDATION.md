@@ -5,6 +5,14 @@ Tested hardware: AYANEO 3, Ryzen 7 8840U, BIOS 1.00. Tested software: Bazzite De
 
 ## Automated checks
 
+- v0.3.1 adds a regression test using the actual installed OGUI overlay filter and
+  stock expanding card. v0.3.0 failed tag selection and controller-focus checks:
+  it used `quick_bar` instead of `quick-bar` and lacked the expected FocusGroup.
+  These are corrected in v0.3.1. Earlier registration logs alone did not establish
+  a reachable menu in the user's Steam overlay.
+- Native test runs now use an isolated `XDG_DATA_HOME` and explicit `--log-file`.
+  Running against the stock PCK with only `--path` still uses the normal OGUI
+  user-data directory; that can overwrite the running session's Godot log.
 - 39 backend tests cover hardware identity, path changes, configuration bounds,
   sensor/write faults, stale telemetry, recovery, intentional zero duty, restart
   grace, and encoded native transport. v0.3.0 adds Quiet outputs, preservation of
@@ -25,6 +33,12 @@ Tested hardware: AYANEO 3, Ryzen 7 8840U, BIOS 1.00. Tested software: Bazzite De
   stock-resource setup; its functional assertions pass.
 
 ## Device checks
+
+For v0.3.1, the user confirmed Fan Controls appears in the actual stock overlay
+when opened with Guide/Home + B. The RC path they initially used did not expose
+the menu. The update preserves Quiet and the custom values. The new overlay
+fixture passes eight checks, including expansion and controller focus into both
+the main controls and custom-curve sliders. No input mappings were changed.
 
 For v0.3.0, installation and a normal reboot preserved the selected automatic
 mode and saved custom settings. The installed native ZIP matched the tested

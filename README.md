@@ -50,9 +50,14 @@ Quiet automatically or change the current mode.
 
 ## Native Bazzite interface
 
-Open the stock OGUI menu (normally the **RC button** on AYANEO), expand **Fan
-Controls**, select a mode, adjust the values, and choose **Apply changes**.
+Open the stock OGUI menu with **Guide/Home + B**, expand **Fan Controls**, select
+a mode, adjust the values, and choose **Apply changes**. This shortcut was
+confirmed on the test AYANEO 3; the RC shortcut depends on the active device mapping.
 **Restore automatic control** hands the fan back to firmware.
+
+Use v0.3.1 or later: earlier versions used the wrong overlay tag and omitted the
+stock card's controller focus group. The corrected native package declares
+`quick-bar` and supports entering the controls with the gamepad.
 
 The native ZIP uses OGUI Plugin API 2.0, its standard quick-access card, dropdowns,
 sliders, buttons, focus behavior, and typed GDScript. It does not replace the stock
