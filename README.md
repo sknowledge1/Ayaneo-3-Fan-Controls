@@ -75,7 +75,8 @@ python3 scripts/build-native.py
 python3 scripts/build-decky-package.py
 ```
 
-The frontend has no install-time npm dependencies. The pinned, readable
+Use pnpm 9.15.9 for the published version-9 lockfile. The frontend has no
+install-time npm dependencies. The pinned, readable
 `@decky/api` source and license are included under `vendor/`.
 
 Native UI tests use the matching Godot 4.7.2 development executable with the stock

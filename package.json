@@ -2,6 +2,8 @@
   "name": "ayaneo-3-fan-controls",
   "version": "0.2.0",
   "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {"node": ">=18.12"},
   "description": "Native OGUI fan controls for AYANEO 3, with an optional Decky frontend.",
   "license": "MIT",
   "author": "sknowledge1 and contributors",
