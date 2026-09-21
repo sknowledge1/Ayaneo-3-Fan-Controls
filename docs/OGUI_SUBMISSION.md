@@ -9,7 +9,8 @@ Registry metadata must pin the v0.5.1 archive and SHA-256, retain plugin ID
 state that the shared `ay3-fancontrol` service is required and is installed by
 Bazzite packaging or this repository's native installer.
 
-Include a sanitized screenshot of the real Fan Controls card. Verify the exact
+Use the sanitized `docs/fan-controls.png` rendering of the real stock Fan Controls
+card. Verify the exact
 archive using the overlay filter, stock expanding card, controller focus, and
 transport tests before updating the registry entry.
 

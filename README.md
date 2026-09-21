@@ -10,6 +10,8 @@ https://github.com/sknowledge1/Ayaneo3-Fans
 
 ## Native controls
 
+![Fan Controls in the stock OGUI card](docs/fan-controls.png)
+
 - Firmware automatic, manual duty, custom curve, and Quiet modes.
 - 0–100% settings; zero permits a fan stop while cool.
 - Tested 10% minimum nonzero running duty.
