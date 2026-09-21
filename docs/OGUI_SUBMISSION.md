@@ -4,7 +4,7 @@ The OpenGamepadUI maintainer invited submission of the native plugin to the OGUI
 store. Submit only the native resource-pack ZIP; the separately distributed
 Ayaneo3 Fans Decky plugin is not part of this entry.
 
-Registry metadata must pin the v0.5.0 archive and SHA-256, retain plugin ID
+Registry metadata must pin the v0.5.1 archive and SHA-256, retain plugin ID
 `ayaneo-fan-control`, and link this repository as source. The description must
 state that the shared `ay3-fancontrol` service is required and is installed by
 Bazzite packaging or this repository's native installer.

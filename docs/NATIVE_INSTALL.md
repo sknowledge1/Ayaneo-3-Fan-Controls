@@ -9,7 +9,7 @@ AYANEO 3 identity, and valid `k10temp` Tctl telemetry are required.
 
 ## Install from a release
 
-1. Download and extract `Ayaneo-3-Fan-Controls-v0.5.0.zip` from the latest release.
+1. Download and extract `Ayaneo-3-Fan-Controls-v0.5.1.zip` from the latest release.
 2. Open a terminal in the extracted directory.
 3. Install the service and native frontend:
 

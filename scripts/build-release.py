@@ -17,7 +17,8 @@ files = []
 for name in ["README.md", "LICENSE", "deploy-manifest.json"]:
     files.append(root / name)
 for directory in ["backend", "native", "systemd", "scripts", "tests", "docs", "packaging"]:
-    files.extend(path for path in (root / directory).rglob("*") if path.is_file())
+    files.extend(path for path in (root / directory).rglob("*")
+                 if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc")
 files.append(native_archive)
 
 output = root / "dist" / f"Ayaneo-3-Fan-Controls-v{version}.zip"

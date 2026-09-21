@@ -16,7 +16,7 @@ import socketserver
 import sys
 import time
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 API_VERSION = 1
 SOCKET = "/run/ay3-fancontrol/control.sock"
 CONFIG = "/var/lib/ay3-fancontrol/config.json"

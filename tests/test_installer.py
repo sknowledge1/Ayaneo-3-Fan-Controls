@@ -40,8 +40,8 @@ class InstallerTests(unittest.TestCase):
             "systemd/ay3-fancontrol-sleep.service": "[Service]\nType=oneshot\n",
         }
         if native:
-            files["native/plugin.json"] = json.dumps({"plugin.version": "0.5.0"})
-            files["dist/ayaneo-fan-control-0.5.0.zip"] = "Native ZIP fixture"
+            files["native/plugin.json"] = json.dumps({"plugin.version": "0.5.1"})
+            files["dist/ayaneo-fan-control-0.5.1.zip"] = "Native ZIP fixture"
         manifest = {}
         for name, content in files.items():
             destination = self.stage / name
