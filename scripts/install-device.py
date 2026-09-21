@@ -16,7 +16,9 @@ if os.geteuid() != 0:
 parser = argparse.ArgumentParser()
 parser.add_argument("stage", type=Path)
 parser.add_argument("--user", default=os.environ.get("SUDO_USER"))
-parser.add_argument("--with-decky", action="store_true", help="Also install/update the optional Decky frontend")
+frontends = parser.add_mutually_exclusive_group()
+frontends.add_argument("--with-decky", action="store_true", help="Install/update native OGUI and Ayaneo3 Fans for Decky")
+frontends.add_argument("--backend-only", action="store_true", help="Install/update only the shared fan service")
 args = parser.parse_args()
 if not args.user or args.user == "root":
     raise SystemExit("Specify the desktop account with --user")
@@ -27,8 +29,6 @@ user_home = Path(account.pw_dir)
 plugin = user_home / "homebrew/plugins/ay3-fancontrol"
 native_directory = user_home / ".local/share/opengamepadui/plugins"
 native_zip = native_directory / "ayaneo-fan-control.zip"
-native_metadata = json.loads((stage / "native/plugin.json").read_text())
-native_archive = f"dist/ayaneo-fan-control-{native_metadata['plugin.version']}.zip"
 decky_prefix = "plugin/" if (stage / "plugin/plugin.json").exists() else ""
 unit_root = Path("/etc/systemd/system")
 marker = state / "installation.json"
@@ -36,8 +36,11 @@ mapping = {
     "src/ay3_fancontrol.py": state / "app/ay3_fancontrol.py",
     "systemd/ay3-fancontrol.service": unit_root / "ay3-fancontrol.service",
     "systemd/ay3-fancontrol-sleep.service": unit_root / "ay3-fancontrol-sleep.service",
-    native_archive: native_zip,
 }
+if not args.backend_only:
+    native_metadata = json.loads((stage / "native/plugin.json").read_text())
+    native_archive = f"dist/ayaneo-fan-control-{native_metadata['plugin.version']}.zip"
+    mapping[native_archive] = native_zip
 if args.with_decky:
     for relative in ["main.py", "plugin.json", "package.json", "dist/index.js", "LICENSE", "LICENSE.decky-api"]:
         mapping[decky_prefix + relative] = plugin / relative
@@ -54,7 +57,7 @@ if updating:
     for destination in mapping.values():
         if destination.exists() and str(destination.resolve()) not in known_paths:
             raise SystemExit("New installation target already exists: " + str(destination))
-elif any(path.exists() for path in [state, native_zip, *mapping.values()]):
+elif any(path.exists() for path in [state, *mapping.values()]):
     raise SystemExit("Installation targets already exist; inspect them before proceeding")
 expected = json.loads((stage / "deploy-manifest.json").read_text())
 for relative in mapping:
@@ -94,10 +97,16 @@ for relative, destination in mapping.items():
              account.pw_gid if destination == native_zip else 0)
     os.chmod(destination, 0o644)
     installed_hashes[str(destination.resolve())] = digest
-for directory in [plugin, plugin / "dist", state / "app", native_directory]:
+directories = [state / "app"]
+if args.with_decky:
+    directories += [plugin, plugin / "dist"]
+if not args.backend_only:
+    directories.append(native_directory)
+for directory in directories:
     if directory.exists():
         os.chmod(directory, 0o755)
-os.chown(native_directory, account.pw_uid, account.pw_gid)
+if not args.backend_only:
+    os.chown(native_directory, account.pw_uid, account.pw_gid)
 if not (state / "config.json").exists():
     (state / "config.json").write_text(json.dumps({"mode": "auto", "percent": 60, "curve": [40, 50, 70, 85, 100]}, indent=2) + "\n")
     os.chmod(state / "config.json", 0o600)
@@ -111,6 +120,6 @@ run("systemctl", "enable", "ay3-fancontrol-sleep.service")
 run("/usr/bin/python3", str(state / "app/ay3_fancontrol.py"), "--status")
 if plugin_changed:
     run("systemctl", "restart", "plugin_loader.service")
-print(json.dumps({"installed": True, "native_plugin": str(native_zip),
+print(json.dumps({"installed": True, "native_plugin": None if args.backend_only else str(native_zip),
                   "decky_updated": args.with_decky, "state": str(state),
-                  "next_step": "Restart the stock OGUI session or reboot to load the native plugin"}))
+                  "next_step": "Shared fan service is ready" if args.backend_only else "Restart the stock OGUI session or reboot to load the native plugin"}))

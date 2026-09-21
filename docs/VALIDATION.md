@@ -3,6 +3,19 @@
 Tested hardware: AYANEO 3, Ryzen 7 8840U, BIOS 1.00. Tested software: Bazzite Deck
 44.20260919.0, kernel 7.2.4-ogc3.1.fc44.x86_64, OGUI 0.46.1, Decky 3.2.9.
 
+## Model eligibility in v0.4.0
+
+All AYANEO 3 CPU variants are allowed. The backend and proposed distribution
+helper no longer read or filter CPU names. The shared `ayaneo_ec` fan-path and
+`k10temp` Tctl checks still apply. Fake-hardware tests cover HX 370, arbitrary CPU
+names, product identity with a different board name, absent cpuinfo, and refusal when valid temperature telemetry is missing.
+Only the 8840U unit has been physically tested here; enabling other variants is
+not a claim that they have had hardware or thermal validation.
+
+v0.4.0 also renames the Decky frontend to Ayaneo3 Fans and adds a backend-only
+installer route. Five installer tests use an isolated filesystem and mocked service
+calls to verify frontend selection, preserved settings/files, and invalid flags.
+
 ## Automated checks
 
 - v0.3.1 adds a regression test using the actual installed OGUI overlay filter and
@@ -13,7 +26,7 @@ Tested hardware: AYANEO 3, Ryzen 7 8840U, BIOS 1.00. Tested software: Bazzite De
 - Native test runs now use an isolated `XDG_DATA_HOME` and explicit `--log-file`.
   Running against the stock PCK with only `--path` still uses the normal OGUI
   user-data directory; that can overwrite the running session's Godot log.
-- 39 backend tests cover hardware identity, path changes, configuration bounds,
+- 43 backend tests cover hardware identity, path changes, configuration bounds,
   sensor/write faults, stale telemetry, recovery, intentional zero duty, restart
   grace, and encoded native transport. v0.3.0 adds Quiet outputs, preservation of
   custom settings, restart hysteresis, immediate heating response, and full duty

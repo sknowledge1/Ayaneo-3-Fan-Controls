@@ -1,7 +1,12 @@
 # Maintainer guidance and submission status
 
-Checked on 2026-09-20. These are published guidelines, not an endorsement or
+Checked on 2026-09-21. These are published guidelines, not an endorsement or
 approval of this implementation by any maintainer.
+
+This repository contains **Ayaneo3 Fans for Decky** and a separate **native OGUI
+Fan Controls frontend**, both using the shared service. All AYANEO 3 CPU variants
+are eligible; physical validation remains on an 8840U unit. Follow the separate
+[Decky](DECKY_INSTALL.md) and [native](NATIVE_INSTALL.md) installation guides.
 
 ## Bazzite and stock interface
 
@@ -60,7 +65,6 @@ title "Ayaneo 3 Fan Controls". Publish an explicit allowlist of source, licenses
 build instructions, and sanitized test summaries. Exclude `.tools`, SSH host data,
 device inventory, personal paths, account information, and raw logs/screenshots.
 
-The user completed GitHub's device-authorization flow. The public repository was
-created at https://github.com/sknowledge1/Ayaneo-3-Fan-Controls. Store acceptance
-remains a separate review decision; repository creation does not resolve the
-published Decky policy or required SteamOS testing.
+The public source is https://github.com/sknowledge1/Ayaneo-3-Fan-Controls. Store
+acceptance remains a separate review decision; repository publication does not
+resolve the published Decky policy or required SteamOS testing.

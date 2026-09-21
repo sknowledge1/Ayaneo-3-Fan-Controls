@@ -16,7 +16,7 @@ import socketserver
 import sys
 import time
 
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 SOCKET = "/run/ay3-fancontrol/control.sock"
 CONFIG = "/var/lib/ay3-fancontrol/config.json"
 FULL_SPEED_C = 95
@@ -34,10 +34,20 @@ def read_int(path):
     return int(Path(path).read_text().strip())
 
 
+def is_ayaneo3(root):
+    dmi = Path(root) / "sys/class/dmi/id"
+    for vendor_field, model_field in (("sys_vendor", "product_name"), ("board_vendor", "board_name")):
+        try:
+            if (dmi / vendor_field).read_text().strip() == "AYANEO" and (dmi / model_field).read_text().strip() == "AYANEO 3":
+                return True
+        except (OSError, UnicodeError):
+            continue
+    return False
+
+
 def find_fan(root):
     root = Path(root)
-    dmi = root / "sys/class/dmi/id"
-    if (dmi / "board_vendor").read_text().strip() != "AYANEO" or (dmi / "board_name").read_text().strip() != "AYANEO 3":
+    if not is_ayaneo3(root):
         raise RuntimeError("This build is restricted to AYANEO 3")
     fan_root = (root / "sys/devices/platform/ayaneo-ec/hwmon").resolve()
     matches = []
@@ -85,7 +95,7 @@ def interpolate(points, temperature):
 
 def safety_floor(temperature, mode="manual"):
     # Quiet trades warmer operation for less noise. Both policies reach full duty
-    # at 95 C, before recovery at 98 C and the 8840U's documented 100 C Tjmax.
+    # at 95 C, before firmware recovery at 98 C. CPU names do not gate support.
     return interpolate(QUIET_POINTS if mode == "quiet" else STANDARD_FLOOR, temperature)
 
 
@@ -111,8 +121,6 @@ class Hardware:
 
     def discover(self):
         self.fan = find_fan(self.root)
-        if "AMD Ryzen 7 8840U" not in (self.root / "proc/cpuinfo").read_text():
-            raise RuntimeError("The fan policy has only been validated on the 8840U model")
         cpus = []
         for directory in sorted((self.root / "sys/class/hwmon").glob("hwmon*")):
             name = (directory / "name").read_text().strip()
@@ -346,7 +354,7 @@ def serve():
         hardware = Hardware()
         if read_int(hardware.fan / "pwm1_enable") != 2:
             raise RuntimeError("Fan is already in manual mode; refusing a second owner")
-        (Path(SOCKET).parent / "owned").write_text("AY3 Fan Control\n")
+        (Path(SOCKET).parent / "owned").write_text("AYANEO 3 Fan Controls\n")
         controller = Controller(hardware)
         Path(SOCKET).unlink(missing_ok=True)
         stopping = False

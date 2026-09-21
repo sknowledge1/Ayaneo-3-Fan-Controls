@@ -1,144 +1,124 @@
-# Ayaneo 3 Fan Controls
+# AYANEO 3 Fan Controls
 
-Fan adjustments in **Bazzite's built-in OpenGamepadUI quick-access menu**, with an
-optional Decky frontend. Both frontends use one supervised service and the existing
-`ayaneo_ec` kernel interface. Decky is not required for the native controls.
+**This repository contains BOTH a Decky plugin and a native Bazzite/OGUI plugin.**
+They are separate frontends. Install either one, or both, with the shared fan service.
 
-This is a community add-on, not an official Bazzite release or an approved store
-listing. It targets the **AYANEO 3 with Ryzen 7 8840U**. Other models are rejected by
-the hardware guard until separately validated.
+| Frontend | Name you will see | Where it appears | Installation guide |
+| --- | --- | --- | --- |
+| **1. Decky plugin** | **Ayaneo3 Fans** | Steam Quick Access Menu → Decky plug icon | [Install in your Decky](docs/DECKY_INSTALL.md) |
+| **2. Native Bazzite/OGUI plugin** | **Fan Controls** | Stock OGUI menu, opened with Guide/Home + B | [Install native OGUI controls](docs/NATIVE_INSTALL.md) |
 
-## Controls
+**All AYANEO 3 models are eligible, regardless of CPU.** This includes the Ryzen 7
+8840U and Ryzen AI 9 HX 370 variants. There is no CPU-name allowlist. The controller
+still verifies AYANEO 3 identity, the existing `ayaneo_ec` fan interface, and valid
+CPU temperature telemetry before taking control. Other AYANEO device families are
+not enabled by this project. Hardware validation so far used an 8840U unit; other
+CPU variants are enabled and covered by simulated compatibility tests.
 
-- Firmware automatic control, manual duty, a five-point custom curve, and Quiet.
-- A **0-100%** setting: zero allows a cool-temperature stop. Nonzero output below
-  10% uses the tested 10% running floor.
-- Temperature-based cooling increases, full fan at **95 C**, and firmware recovery
-  at 98 C. Restart begins above 45 C; stopping again requires cooling to 42 C.
-- Live RPM, CPU temperature, and actual control state.
-- Saved settings, suspend/resume handoff, and independent watchdog recovery.
+## 1. Decky plugin — Ayaneo3 Fans
 
-The zero-duty probe measured a stopped fan at 0%, no rotation at 1%, and restart
-at 10%. A duty percentage is not a linear RPM percentage. Temperature protection
-can raise the effective duty above the selected value.
+Ayaneo3 Fans provides Automatic, Manual, Custom curve, and Quiet modes directly
+in Decky, with live fan RPM and CPU temperature.
 
-### Quiet profile
+**[Step-by-step: add Ayaneo3 Fans to your Decky](docs/DECKY_INSTALL.md)**
 
-Select **Quiet** and **Apply changes** to reduce fan noise by allowing warmer CPU
-operation. Its preset is managed by the service and keeps your custom curve and
-manual setting intact. It uses these points, with interpolation between them:
+1. [Download the complete release bundle](https://github.com/sknowledge1/Ayaneo-3-Fan-Controls/releases/latest) and extract it on your AYANEO 3.
+2. Install/update the shared service from the extracted folder:
 
-| CPU temperature | 45 C or below | 55 C | 65 C | 75 C | 85 C | 90 C | 95 C |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Fan duty | 0% | 15% | 25% | 35% | 55% | 75% | 100% |
+   ```sh
+   sudo python3 scripts/install-device.py . --user "$USER" --backend-only
+   ```
 
-Once running, the fan must cool to 42 C before stopping. Nonzero output is at
-least 10%; duty decreases gradually to reduce audible fluctuations, while rising
-temperature can increase it immediately. The usual sensor, stall, watchdog, and
-firmware-recovery protections apply in Quiet too.
+3. In Decky Settings → General, enable Developer Mode. Open Developer → Install
+   Plugin from ZIP File and select **[Ayaneo3-Fans.zip](https://github.com/sknowledge1/Ayaneo-3-Fan-Controls/releases/latest/download/Ayaneo3-Fans.zip)**.
+4. Open **Decky → Ayaneo3 Fans**, choose a mode, and select **Apply changes**.
 
-The 95 C setting is the **full-fan point**, not a guaranteed temperature cap.
-The separate 98 C firmware handoff stays below the 8840U's
-[documented 100 C Tjmax](https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-7-8840u.html).
-The preset is a software policy; its noise level and temperatures under sustained
-gaming load have not been measured.
+The Decky ZIP requires the shared service. It does not require the native OGUI
+frontend. The detailed guide includes installation from URL, updating the old
+**AY3 Fan Control** entry, verification, and troubleshooting.
 
-In v0.3.0 the custom anchors are 40/55/65/75/**95 C**. Existing duty values are
-retained; only the last temperature moved from 85 C. Manual and custom modes
-retain their previous lower-temperature cooling floor. Updating does not select
-Quiet automatically or change the current mode.
+## 2. Native Bazzite/OGUI plugin — Fan Controls
 
-## Native Bazzite interface
+The native frontend places the same controls in Bazzite’s stock OGUI quick-access
+menu. It uses OGUI’s Plugin API 2.0 and stock controls; Decky is not required.
 
-Open the stock OGUI menu with **Guide/Home + B**, expand **Fan Controls**, select
-a mode, adjust the values, and choose **Apply changes**. This shortcut was
-confirmed on the test AYANEO 3; the RC shortcut depends on the active device mapping.
-**Restore automatic control** hands the fan back to firmware.
+**[Step-by-step: install native OGUI Fan Controls](docs/NATIVE_INSTALL.md)**
 
-Use v0.3.1 or later: earlier versions used the wrong overlay tag and omitted the
-stock card's controller focus group. The corrected native package declares
-`quick-bar` and supports entering the controls with the gamepad.
-
-The native ZIP uses OGUI Plugin API 2.0, its standard quick-access card, dropdowns,
-sliders, buttons, focus behavior, and typed GDScript. It does not replace the stock
-OGUI binary, kernel, InputPlumber, or TDP implementation.
-
-## Installation
-
-Requirements: the tested Bazzite 44 handheld stack, Python 3.10+, OGUI Plugin API
-2.0, and the `ayaneo_ec` driver. Start from a downloaded source archive or clone of
-this public repository.
+From the extracted complete release bundle:
 
 ```sh
-python3 scripts/build-native.py
-python3 scripts/create-deploy-manifest.py
 sudo python3 scripts/install-device.py . --user "$USER"
 ```
 
-Restart the stock OGUI session or reboot to load the native menu. The installer
-uses the selected desktop account, validates staged checksums, backs up managed
-files, and leaves existing settings intact. It writes the service to `/var/lib`
-and `/etc/systemd/system` and the native ZIP to the user's OGUI plugin directory;
-it does not unlock or replace the immutable operating-system image.
+Restart the gaming session or reboot, then open **Guide/Home + B → Fan Controls**.
+To install both frontends together, use `--with-decky` with Decky already installed.
 
-### Optional Decky frontend
+## Shared fan service
 
-The native fan service must be installed first. Build and install the optional
-frontend with:
+Both frontends communicate with one supervised `ay3-fancontrol.service`. It uses
+the existing kernel hwmon interface, saves one common profile, and continues
+controlling the fan when a menu is closed. A change applied in either frontend is
+reflected in the other. Firmware automatic is the default for a new installation.
+
+| Release file | Purpose |
+| --- | --- |
+| `Ayaneo3-Fans.zip` / `ayaneo3-fans-decky-0.4.0.zip` | Decky frontend; install through Decky after the service |
+| `ayaneo-fan-control-0.4.0.zip` | Native OGUI frontend; installed by the native installer |
+| `Ayaneo-3-Fan-Controls-v0.4.0.zip` | Complete bundle: shared service, both built frontends, installer, and guides |
+| `SHA256SUMS` | Release checksums |
+
+The stable internal folder/service identifiers retain `ay3-fancontrol` for upgrade
+compatibility. The Decky display name is **Ayaneo3 Fans**.
+
+## Fan profiles
+
+- **Automatic:** firmware controls cooling.
+- **Manual:** select 0–100% duty; temperature protection can raise the actual output.
+- **Custom curve:** five points at 40/55/65/75/95 C, ending at 100% fan.
+- **Quiet:** a gentler preset that allows warmer operation while preserving your
+  custom curve and manual setting.
+
+| Quiet temperature | 45 C or below | 55 C | 65 C | 75 C | 85 C | 90 C | 95 C |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Fan duty | 0% | 15% | 25% | 35% | 55% | 75% | 100% |
+
+Zero permits fan stop while cool. Nonzero output uses a 10% running floor; restart
+begins above 45 C and a running fan can stop again at 42 C. Duty can rise
+immediately and decreases gradually in curve/Quiet modes.
+
+Full fan begins at **95 C**, with firmware handoff at **98 C**. These are software
+policy points, not a guaranteed cap on observed temperature. Sensor, stall,
+ownership, sampling, and watchdog recovery remain active. Sustained Quiet
+thermal/acoustic testing has not been performed. [Validation and limits](docs/VALIDATION.md).
+
+## Source layout and builds
+
+| Component | Source |
+| --- | --- |
+| Decky / Ayaneo3 Fans | `plugin.json`, `package.json`, `main.py`, `src/panel.js` |
+| Native OGUI | `native/` |
+| Shared service | `src/ay3_fancontrol.py`, `systemd/` |
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm build
-python3 scripts/create-deploy-manifest.py
-sudo python3 scripts/install-device.py . --user "$USER" --with-decky
-```
-
-It appears as **AY3 Fan Control** in Decky's plug menu. The frontend does not run
-with Decky's root flag; it talks to the same local service as OGUI. Installing only
-the Decky ZIP without the service produces an explanatory unavailable state.
-
-## Build and test
-
-```sh
-python3 -m unittest discover -s tests -v
-node --test tests/test_panel.mjs
-node scripts/build-frontend.mjs
-python3 scripts/build-native.py
 python3 scripts/build-decky-package.py
+python3 scripts/build-native.py
+python3 scripts/create-deploy-manifest.py
+pnpm test
 ```
 
-Use pnpm 9.15.9 for the published version-9 lockfile. The frontend has no
-install-time npm dependencies. The pinned, readable
-`@decky/api` source and license are included under `vendor/`.
+Use pnpm 9.15.9 and Node 18.12+. The frontend bundles the readable, pinned
+`@decky/api` source under `vendor/`. Native tests use the matching Godot development
+executable and stock OGUI resources with isolated test user data/logs.
 
-Native UI tests use the matching Godot 4.7.2 development executable with the stock
-OGUI PCK resources. See [validation](docs/VALIDATION.md) and
-[maintainer guidance](docs/MAINTAINER_GUIDELINES.md) for tested scope and limits.
+## Project and store status
 
-## Service and rollback
+This is a community project with Codex-assisted code, automated checks, and
+device testing. It is not an official Bazzite release or an approved store listing.
+[Maintainer guidance](docs/MAINTAINER_GUIDELINES.md) and
+[Decky submission status](docs/DECKY_SUBMISSION.md) document the review and policy
+requirements. Native Bazzite inclusion and Decky store inclusion are separate processes.
 
-```sh
-python3 /var/lib/ay3-fancontrol/app/ay3_fancontrol.py --status
-sudo journalctl -u ay3-fancontrol.service -b
-sudo python3 scripts/uninstall-device.py
-```
-
-The uninstaller verifies automatic mode before removing the recorded components.
-Settings and backups remain in `/var/lib/ay3-fancontrol`; restart OGUI or reboot to
-remove the native menu from the running session.
-
-## Provenance and official stores
-
-This project includes code generated with **Codex**, followed by source review,
-automated tests, and device testing. That provenance is disclosed for reviewers.
-
-The official Decky rules currently reject LLM-based code, and actual SteamOS
-testing is also required. **This repository is not claiming official-store
-eligibility or approval.** See [Decky submission status](docs/DECKY_SUBMISSION.md).
-OGUI/Bazzite inclusion also requires their maintainers' review.
-
-## License
-
-Project code is MIT-licensed. The bundled `@decky/api` retains its LGPL license in
-`LICENSE.decky-api` and original source under `vendor/decky-api-1.1.3/`.
-See [third-party notices](THIRD_PARTY_NOTICES.md).
+Project code is MIT-licensed. The bundled Decky API retains its LGPL license and
+original source. See [third-party notices](THIRD_PARTY_NOTICES.md).

@@ -375,6 +375,34 @@ class HardwareTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             fan.Hardware(self.root)
 
+    def test_hx370_ayaneo3_uses_the_same_hwmon_contract(self):
+        (self.root / "proc/cpuinfo").write_text("AMD Ryzen AI 9 HX 370")
+        hardware = fan.Hardware(self.root)
+        self.assertEqual(hardware.sample()["cpu_c"], 42)
+        hardware.manual(60)
+        self.assertEqual(hardware.sample()["pwm"], 153)
+        hardware.automatic()
+        self.assertEqual(hardware.sample()["hardware_mode"], 2)
+
+    def test_ayaneo3_product_identity_allows_board_name_variants(self):
+        dmi = self.root / "sys/class/dmi/id"
+        (dmi / "sys_vendor").write_text("AYANEO")
+        (dmi / "product_name").write_text("AYANEO 3")
+        (dmi / "board_name").write_text("Variant board")
+        self.assertEqual(fan.Hardware(self.root).sample()["rpm"], 2800)
+
+    def test_ayaneo3_is_not_gated_by_cpu_name_or_cpuinfo(self):
+        (self.root / "proc/cpuinfo").write_text("Another AYANEO 3 CPU variant")
+        self.assertEqual(fan.Hardware(self.root).sample()["rpm"], 2800)
+        (self.root / "proc/cpuinfo").unlink()
+        self.assertEqual(fan.Hardware(self.root).sample()["rpm"], 2800)
+
+    def test_other_variants_still_require_valid_temperature_telemetry(self):
+        (self.root / "proc/cpuinfo").write_text("AMD Ryzen AI 9 HX 370")
+        (self.root / "sys/class/hwmon/hwmon3/temp1_label").write_text("Other sensor")
+        with self.assertRaisesRegex(RuntimeError, "Tctl sensor"):
+            fan.Hardware(self.root)
+
     def test_wrong_fan_path_rejected(self):
         (self.root / "sys/class/hwmon/hwmon77").unlink()
         path = self.root / "sys/class/hwmon/hwmon90"

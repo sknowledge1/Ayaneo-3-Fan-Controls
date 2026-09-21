@@ -1,5 +1,8 @@
 # Official Decky submission status
 
+Plugin display name: **Ayaneo3 Fans**. It supports all AYANEO 3 CPU variants;
+the shared service remains a required dependency. Native OGUI is a separate frontend.
+
 **Not eligible for an approval claim at this time.**
 
 The [published submission rules](https://wiki.deckbrew.xyz/en/plugin-dev/submitting-plugins)
@@ -18,8 +21,8 @@ under that wording.
 | Build output `dist/index.js` | Reproducibly built from readable source |
 | License and dependency source | MIT project; LGPL API source and license included |
 | Plugin runtime archive | Built with `scripts/build-decky-package.py` |
-| External service dependency | Explicitly documented; install the native service first |
-| Unsupported hardware behavior | Hardware guard rejects unvalidated models; no raw EC fallback |
+| External service dependency | Explicitly documented; install the shared service first; OGUI frontend not required |
+| Hardware eligibility | All AYANEO 3 CPU variants; rejects other device families or missing/invalid fan telemetry |
 | AYANEO 3 / Bazzite validation | Recorded in VALIDATION.md |
 | Required real SteamOS validation | Pending; Bazzite tests are not a substitute |
 | AI/LLM policy compliance | Cannot be claimed under current wording |

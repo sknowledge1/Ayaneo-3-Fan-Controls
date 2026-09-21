@@ -9,7 +9,7 @@ plugin = root / "plugin" if (root / "plugin/plugin.json").exists() else root
 metadata = json.loads((plugin / "package.json").read_text())
 output = root / "dist"
 output.mkdir(exist_ok=True)
-archive_path = output / f"ay3-fan-control-decky-{metadata['version']}.zip"
+archive_path = output / f"ayaneo3-fans-decky-{metadata['version']}.zip"
 paths = ["main.py", "plugin.json", "package.json", "dist/index.js", "LICENSE", "LICENSE.decky-api"]
 with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for relative in paths:
@@ -18,3 +18,7 @@ with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compre
         info.external_attr = 0o100644 << 16
         archive.writestr(info, (plugin / relative).read_bytes())
 print(json.dumps({"file": str(archive_path), "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest()}))
+# A stable asset name supports Decky's "Install Plugin from URL" across releases.
+latest_alias = output / "Ayaneo3-Fans.zip"
+latest_alias.write_bytes(archive_path.read_bytes())
+print(json.dumps({"file": str(latest_alias), "sha256": hashlib.sha256(latest_alias.read_bytes()).hexdigest()}))

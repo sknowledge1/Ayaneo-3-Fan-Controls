@@ -115,7 +115,7 @@ function Panel() {
 }
 
 export default definePlugin(() => ({
-  title: h("div", { className: window.DFL.staticClasses.Title }, "AY3 Fan Control"),
+  title: h("div", { className: window.DFL.staticClasses.Title }, "Ayaneo3 Fans"),
   content: h(Panel),
   icon: h(FanIcon)
 }));

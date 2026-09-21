@@ -16,6 +16,6 @@ api = api.replace(importLine, `const _manifest = ${JSON.stringify(manifest)};`)
   .replace('export * from "./types";', "")
   .replace(/^export const /gm, "const ");
 const panel = await fs.readFile(new URL("src/panel.js", root), "utf8");
-const output = `// AY3 Fan Control. Bundled @decky/api 1.1.3; see LICENSE.decky-api.\n${api}\n${panel}`;
+const output = `// Ayaneo3 Fans. Bundled @decky/api 1.1.3; see LICENSE.decky-api.\n${api}\n${panel}`;
 await fs.mkdir(new URL("dist/", pluginRoot), { recursive: true });
 await fs.writeFile(new URL("dist/index.js", pluginRoot), output);
