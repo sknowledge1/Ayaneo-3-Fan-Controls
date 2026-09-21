@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 import ay3_fancontrol as fan
 
 
@@ -323,6 +323,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_status_exposes_quiet_preview_and_temperature_limits(self):
         status = self.configure("quiet")
+        self.assertEqual(status["api_version"], 1)
         self.assertEqual(status["full_speed_c"], 95)
         self.assertEqual(status["recovery_c"], 98)
         self.assertEqual(status["quiet_points"][0], (45, 0))

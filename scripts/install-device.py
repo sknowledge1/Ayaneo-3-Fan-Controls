@@ -8,17 +8,17 @@ from pathlib import Path
 import pwd
 import shutil
 import subprocess
-import sys
 import time
+
+SCHEMA_VERSION = 2
+DECKY_DIRECTORY = "homebrew/plugins/ay3-fancontrol"
 
 if os.geteuid() != 0:
     raise SystemExit("Run the installer with sudo")
 parser = argparse.ArgumentParser()
 parser.add_argument("stage", type=Path)
 parser.add_argument("--user", default=os.environ.get("SUDO_USER"))
-frontends = parser.add_mutually_exclusive_group()
-frontends.add_argument("--with-decky", action="store_true", help="Install/update native OGUI and Ayaneo3 Fans for Decky")
-frontends.add_argument("--backend-only", action="store_true", help="Install/update only the shared fan service")
+parser.add_argument("--backend-only", action="store_true", help="Install/update only the shared fan service")
 args = parser.parse_args()
 if not args.user or args.user == "root":
     raise SystemExit("Specify the desktop account with --user")
@@ -26,14 +26,13 @@ account = pwd.getpwnam(args.user)
 stage = args.stage.resolve()
 state = Path("/var/lib/ay3-fancontrol")
 user_home = Path(account.pw_dir)
-plugin = user_home / "homebrew/plugins/ay3-fancontrol"
+legacy_decky = user_home / DECKY_DIRECTORY
 native_directory = user_home / ".local/share/opengamepadui/plugins"
 native_zip = native_directory / "ayaneo-fan-control.zip"
-decky_prefix = "plugin/" if (stage / "plugin/plugin.json").exists() else ""
 unit_root = Path("/etc/systemd/system")
 marker = state / "installation.json"
 mapping = {
-    "src/ay3_fancontrol.py": state / "app/ay3_fancontrol.py",
+    "backend/ay3_fancontrol.py": state / "app/ay3_fancontrol.py",
     "systemd/ay3-fancontrol.service": unit_root / "ay3-fancontrol.service",
     "systemd/ay3-fancontrol-sleep.service": unit_root / "ay3-fancontrol-sleep.service",
 }
@@ -41,18 +40,19 @@ if not args.backend_only:
     native_metadata = json.loads((stage / "native/plugin.json").read_text())
     native_archive = f"dist/ayaneo-fan-control-{native_metadata['plugin.version']}.zip"
     mapping[native_archive] = native_zip
-if args.with_decky:
-    for relative in ["main.py", "plugin.json", "package.json", "dist/index.js", "LICENSE", "LICENSE.decky-api"]:
-        mapping[decky_prefix + relative] = plugin / relative
-if args.with_decky and not plugin.parent.is_dir():
-    raise SystemExit("Decky plugins directory is missing")
 updating = marker.exists()
+previous = None
+detached_decky = {}
 if updating:
     previous = json.loads(marker.read_text())
     if previous.get("project") != "ay3-fancontrol":
         raise SystemExit("Unexpected installation marker")
     if previous.get("uid", account.pw_uid) != account.pw_uid:
         raise SystemExit("This installation belongs to a different desktop account")
+    for installed_path, digest in previous["files"].items():
+        resolved = Path(installed_path).resolve()
+        if resolved.is_relative_to(legacy_decky.resolve()):
+            detached_decky[installed_path] = digest
     known_paths = {str(Path(path).resolve()) for path in previous["files"]}
     for destination in mapping.values():
         if destination.exists() and str(destination.resolve()) not in known_paths:
@@ -81,8 +81,14 @@ if updating:
             shutil.copy2(destination, target)
 else:
     state.mkdir(mode=0o750)
-plugin_changed = args.with_decky and not updating
-installed_hashes = {str(Path(path).resolve()): digest for path, digest in previous["files"].items()} if updating else {}
+if detached_decky:
+    migration = state / "detached-decky-v0.5.0.json"
+    migration.write_text(json.dumps({"schema_version": 1,
+                                     "reason": "Decky Loader owns Ayaneo3 Fans after the repository split",
+                                     "preserved_files": detached_decky}, indent=2) + "\n")
+    os.chmod(migration, 0o600)
+installed_hashes = ({str(Path(path).resolve()): digest for path, digest in previous["files"].items()
+                     if not Path(path).resolve().is_relative_to(legacy_decky.resolve())} if updating else {})
 for relative, destination in mapping.items():
     destination.parent.mkdir(parents=True, exist_ok=True)
     content = (stage / relative).read_bytes()
@@ -92,14 +98,11 @@ for relative, destination in mapping.items():
     changed = not destination.is_file() or hashlib.sha256(destination.read_bytes()).hexdigest() != digest
     if changed:
         destination.write_bytes(content)
-        plugin_changed = plugin_changed or destination.is_relative_to(plugin)
     os.chown(destination, account.pw_uid if destination == native_zip else 0,
              account.pw_gid if destination == native_zip else 0)
     os.chmod(destination, 0o644)
     installed_hashes[str(destination.resolve())] = digest
 directories = [state / "app"]
-if args.with_decky:
-    directories += [plugin, plugin / "dist"]
 if not args.backend_only:
     directories.append(native_directory)
 for directory in directories:
@@ -110,7 +113,8 @@ if not args.backend_only:
 if not (state / "config.json").exists():
     (state / "config.json").write_text(json.dumps({"mode": "auto", "percent": 60, "curve": [40, 50, 70, 85, 100]}, indent=2) + "\n")
     os.chmod(state / "config.json", 0o600)
-marker.write_text(json.dumps({"project": "ay3-fancontrol", "installed_at": time.time(),
+marker.write_text(json.dumps({"project": "ay3-fancontrol", "schema_version": SCHEMA_VERSION,
+                             "installed_at": time.time(),
                              "uid": account.pw_uid, "user_home": str(user_home),
                              "files": installed_hashes}, indent=2) + "\n")
 run("systemd-analyze", "verify", str(unit_root / "ay3-fancontrol.service"), str(unit_root / "ay3-fancontrol-sleep.service"))
@@ -118,8 +122,6 @@ run("systemctl", "daemon-reload")
 run("systemctl", "enable", "--now", "ay3-fancontrol.service")
 run("systemctl", "enable", "ay3-fancontrol-sleep.service")
 run("/usr/bin/python3", str(state / "app/ay3_fancontrol.py"), "--status")
-if plugin_changed:
-    run("systemctl", "restart", "plugin_loader.service")
 print(json.dumps({"installed": True, "native_plugin": None if args.backend_only else str(native_zip),
-                  "decky_updated": args.with_decky, "state": str(state),
+                  "decky_detached": bool(detached_decky), "state": str(state),
                   "next_step": "Shared fan service is ready" if args.backend_only else "Restart the stock OGUI session or reboot to load the native plugin"}))

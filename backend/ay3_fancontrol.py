@@ -16,7 +16,8 @@ import socketserver
 import sys
 import time
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
+API_VERSION = 1
 SOCKET = "/run/ay3-fancontrol/control.sock"
 CONFIG = "/var/lib/ay3-fancontrol/config.json"
 FULL_SPEED_C = 95
@@ -290,7 +291,8 @@ class Controller:
 
     def status(self):
         age = None if self.sampled_at is None else self.clock() - self.sampled_at
-        return {"ok": True, "version": VERSION, "config": copy.deepcopy(self.config),
+        return {"ok": True, "version": VERSION, "api_version": API_VERSION,
+                "config": copy.deepcopy(self.config),
                 "anchors": ANCHORS, "quiet_points": copy.deepcopy(QUIET_POINTS),
                 "full_speed_c": FULL_SPEED_C, "recovery_c": RECOVERY_C,
                 "minimum_percent": MIN_DUTY,

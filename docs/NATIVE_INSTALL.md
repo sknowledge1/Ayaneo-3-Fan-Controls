@@ -1,70 +1,51 @@
 # Install native OGUI Fan Controls
 
-**This is the native Bazzite/OpenGamepadUI frontend.** It appears as **Fan Controls**
-in the stock OGUI menu. Decky is not required. For the **Ayaneo3 Fans** Decky
-plugin, use [the Decky guide](DECKY_INSTALL.md).
+This repository installs the shared fan service and the native Bazzite/OpenGamepadUI
+frontend. Decky is not required. Ayaneo3 Fans for Decky is maintained separately:
+https://github.com/sknowledge1/Ayaneo3-Fans
 
-All AYANEO 3 CPU variants are allowed. The service requires the existing
-`ayaneo_ec` fan interface and valid `k10temp` Tctl telemetry. OGUI Plugin API 2.0
-and Python 3.10+ are required; the tested Bazzite 44 stack provides them.
+All AYANEO 3 CPU variants are allowed. The existing `ayaneo_ec` fan interface,
+AYANEO 3 identity, and valid `k10temp` Tctl telemetry are required.
 
 ## Install from a release
 
-1. In **Desktop Mode**, open the
-   [latest release](https://github.com/sknowledge1/Ayaneo-3-Fan-Controls/releases/latest).
-2. Download and extract **Ayaneo-3-Fan-Controls-v0.4.0.zip** from Assets.
-3. Open the extracted **Ayaneo-3-Fan-Controls** folder containing `scripts` and
-   `deploy-manifest.json`, then open a terminal there.
-4. Install the shared fan service and native OGUI frontend:
+1. Download and extract `Ayaneo-3-Fan-Controls-v0.5.0.zip` from the latest release.
+2. Open a terminal in the extracted directory.
+3. Install the service and native frontend:
 
    ```sh
    sudo python3 scripts/install-device.py . --user "$USER"
    ```
 
-5. Restart the gaming session or reboot so OGUI loads the native ZIP.
-6. Hold **Guide/Home** and press **B** to open OGUI, then expand **Fan Controls**.
-7. Choose a fan mode and select **Apply changes**. **Restore automatic control**
-   returns ownership to the firmware.
+4. Restart the gaming session or reboot.
+5. Open OGUI with **Guide/Home + B**, expand **Fan Controls**, and apply a mode.
 
-Guide/Home + B was confirmed on the test AYANEO 3. The RC shortcut depends on the
-active device mapping. Native packages before v0.3.1 had overlay-tag/focus defects;
-use the current release.
-
-The native ZIP installs at
-`~/.local/share/opengamepadui/plugins/ayaneo-fan-control.zip`. It belongs to OGUI,
-not Decky's ZIP installer. The installer retains existing fan settings and stores
-backups of managed files. See [validation](VALIDATION.md) for tested scope.
-
-## Install both frontends
-
-With Decky already installed, run this from the extracted complete release bundle:
+To install only the service for another compatible client:
 
 ```sh
-sudo python3 scripts/install-device.py . --user "$USER" --with-decky
+sudo python3 scripts/install-device.py . --user "$USER" --backend-only
 ```
 
-This installs the shared service, the native OGUI frontend, and **Ayaneo3 Fans**
-for Decky. Both menus edit the same saved profile through one controller. A change
-applied in either menu is reflected in the other.
+Updating from the combined v0.4.0 installer preserves settings and the installed
+Decky frontend, then detaches Decky's files from native installer ownership.
+Decky Loader owns Ayaneo3 Fans after that migration.
 
-## Build from source
+## Verify
 
 ```sh
-python3 scripts/build-native.py
-python3 scripts/create-deploy-manifest.py
-sudo python3 scripts/install-device.py . --user "$USER"
+systemctl is-active ay3-fancontrol.service
+python3 /var/lib/ay3-fancontrol/app/ay3_fancontrol.py --status
 ```
 
-## Remove the manual installation
+The status should report `api_version: 1`, current RPM/temperature telemetry, and
+no fault. A new installation starts in firmware automatic mode.
 
-From the extracted release/source folder, run:
+## Remove
 
 ```sh
 sudo python3 scripts/uninstall-device.py
 ```
 
-This removes components recorded by the installer after verifying firmware
-automatic control. It retains settings/backups under `/var/lib/ay3-fancontrol`.
-If the installer also managed the Decky frontend, that frontend is removed too.
-Restart OGUI or reboot to unload its menu. RPM-managed installations should be
-removed through their package manager instead.
+The uninstaller verifies firmware automatic mode and removes only backend/native
+files recorded after ownership migration. It retains saved settings, backups,
+and all Decky-owned files. Restart OGUI or reboot to unload the menu.
