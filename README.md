@@ -1,5 +1,17 @@
 # AYANEO 3 Fan Controls for Bazzite / OpenGamepadUI
 
+> [!CAUTION]
+> **Deprecated proof of concept — feature development is frozen.** The generic
+> replacement is being reviewed in
+> [PowerStation PR #54](https://github.com/ShadowBlip/PowerStation/pull/54) and
+> [OpenGamepadUI PR #550](https://github.com/ShadowBlip/OpenGamepadUI/pull/550),
+> following [PowerStation issue #29](https://github.com/ShadowBlip/PowerStation/issues/29)
+> and [OpenGamepadUI issue #505](https://github.com/ShadowBlip/OpenGamepadUI/issues/505).
+> Existing releases are retained unchanged only as rollback and engineering
+> evidence. Do not run this service alongside PowerStation fan control: exactly
+> one process may own the fan. The 95 C/98 C values below were POC policy and
+> remain subject to upstream maintainer review.
+
 Native fan controls for every AYANEO 3 CPU variant, using Bazzite's stock
 OpenGamepadUI quick-access menu and the existing `ayaneo_ec` kernel interface.
 This repository also owns the single supervised fan service used by native OGUI
